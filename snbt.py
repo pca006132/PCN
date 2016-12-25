@@ -152,16 +152,16 @@ class Tag:
         else:
             return TagCompound
 class TagByte(Tag):
-    pattern = re.compile(r'(-?\d+(?=[b])|true|false)')
+    pattern = re.compile(r'(-?\d+)b|(true|false)')
     def __str__(self):
         return str(self.value) + "b"
     def parse(text):
         match = TagByte.pattern.fullmatch(text.lower())
         if match is not None:
             value = 0
-            if match.group(1) == 'true':
+            if match.group(2) == 'true':
                 value = 1
-            elif match.group(1) == 'false':
+            elif match.group(2) == 'false':
                 value = 0
             else:
                 value = int(match.group(1))
@@ -376,59 +376,59 @@ def load_json(json_text):
 def check_compound_items(rules, compound, base_tag):
     for key in compound.keys():
         if key not in rules[base_tag]:
-            raise NbtException('Unknown tag name\nTag stack:\n  %s' % key)
+            raise NbtException('Unknown tag name\nTag stack:\n>    %s' % key)
 
         tag_type = Tag.str_to_class_name(rules[base_tag][key]['type'])
         if not compound[key].type_match(tag_type):
-            raise NbtException('Invalid tag type\nTag stack:\n  %s' % key)
+            raise NbtException('Invalid tag type\nTag stack:\n>    %s' % key)
 
         if tag_type is TagList:
             if rules[base_tag][key]['count'] > 0 and \
                 len(compound[key]) != rules[base_tag][key]['count']:
-                raise NbtException('Invalid number of items\nTag stack:\n  %s' % key)
+                raise NbtException('Invalid number of items\nTag stack:\n>    %s' % key)
             tag_type = Tag.str_to_class_name(rules[base_tag][key]['subtype'])
             check_value = 'values' in rules[base_tag][key]
             check_range = 'range' in rules[base_tag][key]
 
             for tag in compound[key]:
                 if not tag.type_match(tag_type):
-                    raise NbtException('Invalid item type\nTag stack:\n  %s' % key)
+                    raise NbtException('Invalid item type\nTag stack:\n>    %s' % key)
                 if tag_type is TagCompound:
                     try:
                         check_compound_items(rules, tag, rules[base_tag][key]['subtype'])
                     except NbtException as error:
-                        raise NbtException('%s\n  %s' % (error.message, key))
+                        raise NbtException('%s\n>    %s' % (error.message, key))
                 else:
                     if check_value:
                         if not tag.value in rules[base_tag][key]['values']:
-                            raise NbtException('Invalid value\nTag stack:\n  %s' % key)
+                            raise NbtException('Invalid value\nTag stack:\n>    %s' % key)
                     if check_range:
                         if not (tag.value >= rules[base_tag][key]['range']['min'] and \
                             tag.value <= rules[base_tag][key]['range']['max']):
-                            raise NbtException('Invalid value\nTag stack:\n  %s' % key)
+                            raise NbtException('Invalid value\nTag stack:\n>    %s' % key)
         elif tag_type is TagCompound:
             try:
                 check_compound_items(rules, compound[key], rules[base_tag][key]['type'])
             except NbtException as error:
-                raise NbtException('%s\n  %s' % (error.message, key))
+                raise NbtException('%s\n>    %s' % (error.message, key))
         elif tag_type is TagIntArray:
             check_value = 'values' in rules[base_tag][key]
             check_range = 'range' in rules[base_tag][key]
             for tag in compound[key]:
                 if not tag.type_match(TagInt):
-                    raise NbtException('Invalid item type\nTag stack:\n  %s' % key)
+                    raise NbtException('Invalid item type\nTag stack:\n>    %s' % key)
                 if check_value:
                     if not tag.value in rules[base_tag][key]['values']:
-                        raise NbtException('Invalid value\nTag stack:\n  %s' % key)
+                        raise NbtException('Invalid value\nTag stack:\n>    %s' % key)
                 if check_range:
                     if not (tag.value >= rules[base_tag][key]['range']['min'] and \
                         tag.value <= rules[base_tag][key]['range']['max']):
-                        raise NbtException('Invalid value\nTag stack:\n  %s' % key)
+                        raise NbtException('Invalid value\nTag stack:\n>    %s' % key)
         else:
             if 'values' in rules[base_tag][key]:
                 if not compound[key].value in rules[base_tag][key]['values']:
-                    raise NbtException('Invalid value\nTag stack:\n  %s' % key)
+                    raise NbtException('Invalid value\nTag stack:\n>    %s' % key)
             if 'range' in rules[base_tag][key]:
                 if not (compound[key].value >= rules[base_tag][key]['range']['min'] and \
                     compound[key].value <= rules[base_tag][key]['range']['max']):
-                    raise NbtException('Invalid value\nTag stack:\n  %s' % key)
+                    raise NbtException('Invalid value\nTag stack:\n>    %s' % key)
