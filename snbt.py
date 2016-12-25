@@ -1,35 +1,37 @@
+import json
+
 """Parse Single Tag(return Tag):
 > Tag.parse(TEXT)
----------------------------------------------------------
+----------------------------------------------------------
 Parse Multiple Tags(no name):
 > index = 0
 > tags = []
 > while index < len(TEXT) - 1
 >     key, value, index = Tag.parse_key_value(TEXT, index)
 >     tags.append(Tag.parse(value))
----------------------------------------------------------
+----------------------------------------------------------
 Parse Multiple Tags(with name):
 > index = 0
 > tags = {}
 > while index < len(TEXT) - 1
 >     key, value, index = Tag.parse_key_value(TEXT, index)
 >     tags[key] = Tag.parse(value)
----------------------------------------------------------
+----------------------------------------------------------
 Get Item of Compound Tag(return Tag):
 > compound['key']
----------------------------------------------------------
+----------------------------------------------------------
 Get Item of List Tag(return Tag):
 > list[index]
----------------------------------------------------------
+----------------------------------------------------------
 Iterate over Items in Compound Tag:
 > for key in compound.tags():
 >     tag = compound[key]
----------------------------------------------------------
+----------------------------------------------------------
 Iterate over Items in List Tag:
 > for tag in list:
 >     # do what ever here
 >     pass
----------------------------------------------------------
+----------------------------------------------------------
 Check Type(return Boolean):
 > tag.type_match(type)
 
@@ -39,13 +41,13 @@ Usage: the type of the tag read may not be the type in
 game, such as Count:1 is parsed as TagInt, but it should
 be TagByte in game. This function can check if the tag
 can be converted into the type in game.
---------------------------------------------------------
+---------------------------------------------------------
 String representation of Tag(return string, no indent):
 > str(tag)
----------------------------------------------------------
+----------------------------------------------------------
 Pretty print(return string, with indent and line break)
 > tag.tree()
----------------------------------------------------------
+----------------------------------------------------------
 Error: NbtException
 Sources of error:
 + Illegal black slash outside string, such as 'say \\nhi'
@@ -59,6 +61,7 @@ class NbtException(Exception):
     def __init__(self, message):
         self.message = message
 class Tag:
+    strict = False
     multiline = re.compile('^', re.M)
     def __init__(self, value = None):
         self.value = value
@@ -101,39 +104,72 @@ class Tag:
                     brackets.append(i)
                 elif i == '}':
                     if len(brackets) == 0 or brackets[-1] == ']':
-                        raise NbtException('Imbalance bracket at char %d.' % (j+1))
+                        raise NbtException('Imbalance bracket at char %d.\n%s' % \
+                            (j+1,text))
                     brackets.pop()
                 elif i == ']':
                     if len(brackets) == 0 or brackets[-1] == '}':
-                        raise NbtException('Imbalance bracket at char %d.' % (j+1))
+                        raise NbtException('Imbalance bracket at char %d.\n%s' % \
+                            (j+1,text))
                     brackets.pop()
                 elif i == '"':
                     string = True
                 elif i == '\\':
-                    raise NbtException('Illegal back slash at char %d.' % (j+1))
+                    raise NbtException('Illegal back slash at char %d.\n%s' % \
+                        (j+1,text))
                 elif i == ',':
                     if len(brackets) == 0:
                         value = ''.join(temp)
                         return key, value, j+1
                 temp.append(i)
         if len(brackets) > 0:
-            raise NbtException('No ending bracket.')
+            raise NbtException('No ending bracket.\n%s' % text)
         if string:
-            raise NbtException('No ending quote')
+            raise NbtException('No ending quote\n%s' % text)
         value = ''.join(temp)
-        return key, value, len(text) - 1
+        return key, value, len(text)
     def tree(self):
         return str(self)
+    def str_to_class_name(text):
+        if text == 'byte':
+            return TagByte
+        elif text == 'double':
+            return TagDouble
+        elif text == 'float':
+            return TagFloat
+        elif text == 'int':
+            return TagInt
+        elif text == 'list':
+            return TagList
+        elif text == 'long':
+            return TagLong
+        elif text == 'short':
+            return TagShort
+        elif text == 'string':
+            return TagString
+        elif text == 'int array':
+            return TagIntArray
+        else:
+            return TagCompound
 class TagByte(Tag):
-    pattern = re.compile(r'(\d+)[bB]')
+    pattern = re.compile(r'(-?\d+(?=[b])|true|false)')
     def __str__(self):
         return str(self.value) + "b"
     def parse(text):
-        match = TagByte.pattern.fullmatch(text)
+        match = TagByte.pattern.fullmatch(text.lower())
         if match is not None:
-            return True, TagByte(int(match.group(1)))
+            value = 0
+            if match.group(1) == 'true':
+                value = 1
+            elif match.group(1) == 'false':
+                value = 0
+            else:
+                value = int(match.group(1))
+            return True, TagByte(value)
         return False, None
     def type_match(self, nbt_type):
+        if Tag.strict:
+            return nbt_type is TagByte
         return nbt_type in [TagByte, TagString]
 class TagCompound(Tag):
     def __contains__(self, item):
@@ -157,7 +193,7 @@ class TagCompound(Tag):
         if text[0] == '{' and text[-1] == '}':
             index = 0
             tags = {}
-            while index < len(text[1:-1]) - 1:
+            while index < len(text[1:-1]):
                 key, value, index = Tag.parse_key_value(text[1:-1], index)
                 tags[key] = Tag.parse(value)
             return True, TagCompound(tags)
@@ -171,9 +207,11 @@ class TagCompound(Tag):
         else:
             return '{}'
     def type_match(self, nbt_type):
+        if Tag.strict:
+            return nbt_type is TagCompound
         return nbt_type in [TagCompound, TagString]
 class TagDouble(Tag):
-    pattern = re.compile(r'(\d+\.\d+[dD]?)|(\d+[dD])')
+    pattern = re.compile(r'(-?\d+\.\d+[dD]?)|(-?\d+[dD])')
     def __str__(self):
         return str(self.value) + "d"
     def parse(text):
@@ -183,9 +221,11 @@ class TagDouble(Tag):
                 TagDouble(float(text if text[-1] not in ['b', 'B'] else text[:-1]))
         return False, None
     def type_match(self, nbt_type):
+        if Tag.strict:
+            return nbt_type is TagDouble
         return nbt_type in [TagDouble, TagString]
 class TagFloat(Tag):
-    pattern = re.compile(r'(\d+(\.\d+)?)[fF]')
+    pattern = re.compile(r'(-?\d+(\.\d+)?)[fF]')
     def __str__(self):
         return str(self.value) + "f"
     def parse(text):
@@ -194,9 +234,11 @@ class TagFloat(Tag):
             return True, TagFloat(float(match.group(1)))
         return False, None
     def type_match(self, nbt_type):
+        if Tag.strict:
+            return nbt_type is TagFloat
         return nbt_type in [TagFloat, TagString]
 class TagInt(Tag):
-    pattern = re.compile(r'\d+')
+    pattern = re.compile(r'-?\d+')
     def __str__(self):
         return str(self.value)
     def parse(text):
@@ -205,7 +247,11 @@ class TagInt(Tag):
             return True, TagInt(int(text))
         return False, None
     def type_match(self, nbt_type):
+        if Tag.strict:
+            return nbt_type is TagInt
         return nbt_type in [TagInt, TagByte, TagShort, TagString]
+class TagIntArray(Tag):
+    pass
 class TagList(Tag):
     def __contains__(self, item):
         return item in self.value
@@ -215,6 +261,8 @@ class TagList(Tag):
         self.value[key] = value
     def __delitem__(self, key):
         del(self.value[key])
+    def __len__(self):
+        return len(self.value)
     def __init__(self, value = []):
         self.value = value
     def __str__(self):
@@ -226,7 +274,7 @@ class TagList(Tag):
         if text[0] == '[' and text[-1] == ']':
             index = 0
             tags = []
-            while index < len(text[1:-1]) - 1:
+            while index < len(text[1:-1]):
                 key, value, index = Tag.parse_key_value(text[1:-1], index)
                 tags.append(Tag.parse(value))
             return True, TagList(tags)
@@ -240,9 +288,11 @@ class TagList(Tag):
         else:
             return '[]'
     def type_match(self, nbt_type):
-        return nbt_type in [TagList, TagString]
+        if Tag.strict:
+            return nbt_type in [TagList, TagIntArray]
+        return nbt_type in [TagList, TagString, TagIntArray]
 class TagLong(Tag):
-    pattern = re.compile(r'(\d+)[lL]')
+    pattern = re.compile(r'(-?\d+)[lL]')
     def __str__(self):
         return str(self.value) + "l"
     def parse(text):
@@ -251,9 +301,11 @@ class TagLong(Tag):
             return True, TagLong(int(match.group(1)))
         return False, None
     def type_match(self, nbt_type):
+        if Tag.strict:
+            return nbt_type is TagLong
         return nbt_type in [TagLong, TagString]
 class TagShort(Tag):
-    pattern = re.compile(r'(\d+)[sS]')
+    pattern = re.compile(r'(-?\d+)[sS]')
     def __str__(self):
         return str(self.value) + "s"
     def parse(text):
@@ -262,6 +314,8 @@ class TagShort(Tag):
             return True, TagShort(int(match.group(1)))
         return False, None
     def type_match(self, nbt_type):
+        if Tag.strict:
+            return nbt_type is TagShort
         return nbt_type in [TagShort, TagString]
 class TagString(Tag):
     def __str__(self):
@@ -314,12 +368,67 @@ class TagString(Tag):
     def unescape(text):
         return text.replace('\\"', '"').replace('\\\\', '\\')
     def type_match(self, nbt_type):
-        return nbt_type in [TagString]
+        return nbt_type is TagString
 
-if __name__ == '__main__':
-    try:
-        tag = Tag.parse(input())
-        with open('nbttree.txt', 'w') as file:
-            file.write(tag.tree())
-    except NbtException as error:
-        print(error.message)
+def load_json(json_text):
+    return json.loads(json_text)
+
+def check_compound_items(rules, compound, base_tag):
+    for key in compound.keys():
+        if key not in rules[base_tag]:
+            raise NbtException('Unknown tag name\nTag stack:\n  %s' % key)
+
+        tag_type = Tag.str_to_class_name(rules[base_tag][key]['type'])
+        if not compound[key].type_match(tag_type):
+            raise NbtException('Invalid tag type\nTag stack:\n  %s' % key)
+
+        if tag_type is TagList:
+            if rules[base_tag][key]['count'] > 0 and \
+                len(compound[key]) != rules[base_tag][key]['count']:
+                raise NbtException('Invalid number of items\nTag stack:\n  %s' % key)
+            tag_type = Tag.str_to_class_name(rules[base_tag][key]['subtype'])
+            check_value = 'values' in rules[base_tag][key]
+            check_range = 'range' in rules[base_tag][key]
+
+            for tag in compound[key]:
+                if not tag.type_match(tag_type):
+                    raise NbtException('Invalid item type\nTag stack:\n  %s' % key)
+                if tag_type is TagCompound:
+                    try:
+                        check_compound_items(rules, tag, rules[base_tag][key]['subtype'])
+                    except NbtException as error:
+                        raise NbtException('%s\n  %s' % (error.message, key))
+                else:
+                    if check_value:
+                        if not tag.value in rules[base_tag][key]['values']:
+                            raise NbtException('Invalid value\nTag stack:\n  %s' % key)
+                    if check_range:
+                        if not (tag.value >= rules[base_tag][key]['range']['min'] and \
+                            tag.value <= rules[base_tag][key]['range']['max']):
+                            raise NbtException('Invalid value\nTag stack:\n  %s' % key)
+        elif tag_type is TagCompound:
+            try:
+                check_compound_items(rules, compound[key], rules[base_tag][key]['type'])
+            except NbtException as error:
+                raise NbtException('%s\n  %s' % (error.message, key))
+        elif tag_type is TagIntArray:
+            check_value = 'values' in rules[base_tag][key]
+            check_range = 'range' in rules[base_tag][key]
+            for tag in compound[key]:
+                if not tag.type_match(TagInt):
+                    raise NbtException('Invalid item type\nTag stack:\n  %s' % key)
+                if check_value:
+                    if not tag.value in rules[base_tag][key]['values']:
+                        raise NbtException('Invalid value\nTag stack:\n  %s' % key)
+                if check_range:
+                    if not (tag.value >= rules[base_tag][key]['range']['min'] and \
+                        tag.value <= rules[base_tag][key]['range']['max']):
+                        raise NbtException('Invalid value\nTag stack:\n  %s' % key)
+        else:
+            if 'values' in rules[base_tag][key]:
+                if not compound[key].value in rules[base_tag][key]['values']:
+                    raise NbtException('Invalid value\nTag stack:\n  %s' % key)
+            if 'range' in rules[base_tag][key]:
+                if not (compound[key].value >= rules[base_tag][key]['range']['min'] and \
+                    compound[key].value <= rules[base_tag][key]['range']['max']):
+                    raise NbtException('Invalid value\nTag stack:\n  %s' % key)
