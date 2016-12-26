@@ -4,9 +4,14 @@ import py2exe
 setup(
     options = {'py2exe': {
             'bundle_files': 1,
-            'includes':['snbt','re','json'],
+            'compressed': True,
+            'includes':['sip']
         }
     },
-    console = [{'script':'main.py',"icon_resources": [(1, "icon.ico")]}],
+    windows = [{'script':'main.py',"icon_resources": [(1, "image/icon.ico")]}],
+    data_files = [
+      ('lib/imageformats', [
+        r'C:\Python34\Lib\site-packages\PyQt5\plugins\imageformats\qico.dll'
+        ])],
     zipfile = None
 )

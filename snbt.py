@@ -103,29 +103,31 @@ class Tag:
                     has_key = False
                     brackets.append(i)
                 elif i == '}':
-                    if len(brackets) == 0 or brackets[-1] == ']':
-                        raise NbtException('Imbalance bracket at char %d.\n%s' % \
-                            (j+1,text))
+                    if len(brackets) == 0 or brackets[-1] == '[':
+                        raise NbtException('Imbalance bracket at char %d.\n%s\n%s' % \
+                            (j+1,'...' + text[j-50 if j>50 else 0:j+1],\
+                            ' '*(j-(j-50 if j>50 else 0)+3) + '^'))
                     brackets.pop()
                 elif i == ']':
-                    if len(brackets) == 0 or brackets[-1] == '}':
-                        raise NbtException('Imbalance bracket at char %d.\n%s' % \
-                            (j+1,text))
+                    if len(brackets) == 0 or brackets[-1] == '{':
+                        raise NbtException('Imbalance bracket at char %d.\n%s\n%s' % \
+                            (j+1,'...' + text[j-50 if j>50 else 0:j+1],\
+                            ' '*(j-(j-50 if j>50 else 0)+3) + '^'))
                     brackets.pop()
                 elif i == '"':
                     string = True
-                elif i == '\\':
-                    raise NbtException('Illegal back slash at char %d.\n%s' % \
-                        (j+1,text))
+                #elif i == '\\':
+                #    raise NbtException('Illegal back slash at char %d.\n%s' % \
+                #        (j+1,text))
                 elif i == ',':
                     if len(brackets) == 0:
                         value = ''.join(temp)
                         return key, value, j+1
                 temp.append(i)
         if len(brackets) > 0:
-            raise NbtException('No ending bracket.\n%s' % text)
+            raise NbtException('No ending bracket.\n%s' % text[index:])
         if string:
-            raise NbtException('No ending quote\n%s' % text)
+            raise NbtException('No ending quote\n%s' % text[index:])
         value = ''.join(temp)
         return key, value, len(text)
     def tree(self):
@@ -218,7 +220,7 @@ class TagDouble(Tag):
         match = TagDouble.pattern.fullmatch(text)
         if match is not None:
             return True, \
-                TagDouble(float(text if text[-1] not in ['b', 'B'] else text[:-1]))
+                TagDouble(float(text if text[-1] not in ['d', 'D'] else text[:-1]))
         return False, None
     def type_match(self, nbt_type):
         if Tag.strict:
@@ -364,7 +366,8 @@ class TagString(Tag):
     def parse(text):
         if text[0] == '"' and text[-1] == '"':
             return True, TagString(TagString.unescape(text[1:-1]))
-        return True, TagString(text)
+        #return True, TagString(text)
+        return True, TagString(TagString.unescape(text))
     def unescape(text):
         return text.replace('\\"', '"').replace('\\\\', '\\')
     def type_match(self, nbt_type):
@@ -378,9 +381,20 @@ def check_compound_items(rules, compound, base_tag):
         if key not in rules[base_tag]:
             raise NbtException('Unknown tag name\nTag stack:\n>    %s' % key)
 
+        if '|' in rules[base_tag][key]['type']:
+            match = False
+            for type_name in rules[base_tag][key]['type'].split('|'):
+                if compound[key].type_match(Tag.str_to_class_name(type_name)):
+                    match = True
+                    break
+            if not match:
+                raise NbtException('Invalid tag type, should be %s\nTag stack:\n>    %s'\
+                    % (rules[base_tag][key]['type'], key))
+            return
         tag_type = Tag.str_to_class_name(rules[base_tag][key]['type'])
         if not compound[key].type_match(tag_type):
-            raise NbtException('Invalid tag type\nTag stack:\n>    %s' % key)
+            raise NbtException('Invalid tag type, should be %s\nTag stack:\n>    %s'\
+                % (rules[base_tag][key]['type'], key))
 
         if tag_type is TagList:
             if rules[base_tag][key]['count'] > 0 and \
@@ -390,22 +404,28 @@ def check_compound_items(rules, compound, base_tag):
             check_value = 'values' in rules[base_tag][key]
             check_range = 'range' in rules[base_tag][key]
 
+            index = 0
             for tag in compound[key]:
                 if not tag.type_match(tag_type):
-                    raise NbtException('Invalid item type\nTag stack:\n>    %s' % key)
+                    raise NbtException(\
+                        'Invalid item type, should be%s\nTag stack:\n>    %s[%d]' %\
+                        (rules[base_tag][key]['subtype'], key, index))
                 if tag_type is TagCompound:
                     try:
                         check_compound_items(rules, tag, rules[base_tag][key]['subtype'])
                     except NbtException as error:
-                        raise NbtException('%s\n>    %s' % (error.message, key))
+                        raise NbtException('%s\n>    %s[%d]'%(error.message, key, index))
                 else:
                     if check_value:
                         if not tag.value in rules[base_tag][key]['values']:
-                            raise NbtException('Invalid value\nTag stack:\n>    %s' % key)
+                            raise NbtException('Invalid value\nTag stack:\n>    %s[%d]'\
+                                % (key, index))
                     if check_range:
                         if not (tag.value >= rules[base_tag][key]['range']['min'] and \
                             tag.value <= rules[base_tag][key]['range']['max']):
-                            raise NbtException('Invalid value\nTag stack:\n>    %s' % key)
+                            raise NbtException('Invalid value\nTag stack:\n>    %s[%d]'\
+                                % (key, index))
+                index += 1
         elif tag_type is TagCompound:
             try:
                 check_compound_items(rules, compound[key], rules[base_tag][key]['type'])
@@ -416,7 +436,8 @@ def check_compound_items(rules, compound, base_tag):
             check_range = 'range' in rules[base_tag][key]
             for tag in compound[key]:
                 if not tag.type_match(TagInt):
-                    raise NbtException('Invalid item type\nTag stack:\n>    %s' % key)
+                    raise NbtException(\
+                        'Invalid item type, should be int\nTag stack:\n>    %s' % key)
                 if check_value:
                     if not tag.value in rules[base_tag][key]['values']:
                         raise NbtException('Invalid value\nTag stack:\n>    %s' % key)
