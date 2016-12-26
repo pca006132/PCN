@@ -8,7 +8,7 @@ setup(
             'includes':['sip']
         }
     },
-    windows = [{'script':'main.py',"icon_resources": [(1, "image/icon.ico")]}],
+    windows = [{'script':'PCN.py',"icon_resources": [(1, "image/icon.ico")]}],
     data_files = [
       ('lib/imageformats', [
         r'C:\Python34\Lib\site-packages\PyQt5\plugins\imageformats\qico.dll'
