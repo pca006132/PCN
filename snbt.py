@@ -178,7 +178,7 @@ class TagByte(Tag):
     def type_match(self, nbt_type):
         if Tag.strict:
             return nbt_type is TagByte
-        return nbt_type in [TagByte, TagString]
+        return nbt_type in [TagByte]
 class TagCompound(Tag):
     def __contains__(self, item):
         return item in self.value
@@ -217,7 +217,7 @@ class TagCompound(Tag):
     def type_match(self, nbt_type):
         if Tag.strict:
             return nbt_type is TagCompound
-        return nbt_type in [TagCompound, TagString]
+        return nbt_type in [TagCompound]
 class TagDouble(Tag):
     pattern = re.compile(r'(-?\d+\.\d+[dD]?)|(-?\d+[dD])')
     def __str__(self):
@@ -231,7 +231,7 @@ class TagDouble(Tag):
     def type_match(self, nbt_type):
         if Tag.strict:
             return nbt_type is TagDouble
-        return nbt_type in [TagDouble, TagString]
+        return nbt_type in [TagDouble]
 class TagFloat(Tag):
     pattern = re.compile(r'(-?\d+(\.\d+)?)[fF]')
     def __str__(self):
@@ -244,7 +244,7 @@ class TagFloat(Tag):
     def type_match(self, nbt_type):
         if Tag.strict:
             return nbt_type is TagFloat
-        return nbt_type in [TagFloat, TagString]
+        return nbt_type in [TagFloat]
 class TagInt(Tag):
     pattern = re.compile(r'-?\d+')
     def __str__(self):
@@ -257,7 +257,7 @@ class TagInt(Tag):
     def type_match(self, nbt_type):
         if Tag.strict:
             return nbt_type is TagInt
-        return nbt_type in [TagInt, TagByte, TagShort, TagString]
+        return nbt_type in [TagInt, TagByte, TagShort]
 class TagIntArray(Tag):
     pass
 class TagList(Tag):
@@ -298,7 +298,7 @@ class TagList(Tag):
     def type_match(self, nbt_type):
         if Tag.strict:
             return nbt_type in [TagList, TagIntArray]
-        return nbt_type in [TagList, TagString, TagIntArray]
+        return nbt_type in [TagList, TagIntArray]
 class TagLong(Tag):
     pattern = re.compile(r'(-?\d+)[lL]')
     def __str__(self):
@@ -311,7 +311,7 @@ class TagLong(Tag):
     def type_match(self, nbt_type):
         if Tag.strict:
             return nbt_type is TagLong
-        return nbt_type in [TagLong, TagString]
+        return nbt_type in [TagLong]
 class TagShort(Tag):
     pattern = re.compile(r'(-?\d+)[sS]')
     def __str__(self):
@@ -324,7 +324,7 @@ class TagShort(Tag):
     def type_match(self, nbt_type):
         if Tag.strict:
             return nbt_type is TagShort
-        return nbt_type in [TagShort, TagString]
+        return nbt_type in [TagShort]
 class TagString(Tag):
     def __str__(self):
         if TagString.need_escape(self.value) or \
