@@ -128,14 +128,14 @@ class Tag:
                 elif i == ',':
                     if len(brackets) == 0:
                         value = ''.join(temp)
-                        return key, value, j+1
+                        return key.strip(), value.strip(), j+1
                 temp.append(i)
         if len(brackets) > 0:
             raise NbtException('No ending bracket.\n%s' % text[index:])
         if string:
             raise NbtException('No ending quote\n%s' % text[index:])
         value = ''.join(temp)
-        return key, value, len(text)
+        return key.strip(), value.strip(), len(text)
     def tree(self):
         return str(self)
     def str_to_class_name(text):
