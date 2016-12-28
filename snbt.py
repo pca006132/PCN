@@ -93,7 +93,14 @@ class Tag:
                     string = False
                 temp.append(i)
             else:
-                if i == ':':
+                if escape:
+                    if i == '"':
+                        raise NbtException('Illegal \\" pattern at char %d.\n%s\n%s' % \
+                                (j+1,'...' + text[j-50 if j>50 else 0:j+1],\
+                                ' '*(j-(j-50 if j>50 else 0)+3) + '^'))
+                    else:
+                        escape = False
+                elif i == ':':
                     if has_key:
                         key = ''.join(temp)
                         temp.clear()
@@ -116,9 +123,8 @@ class Tag:
                     brackets.pop()
                 elif i == '"':
                     string = True
-                #elif i == '\\':
-                #    raise NbtException('Illegal back slash at char %d.\n%s' % \
-                #        (j+1,text))
+                elif i == '\\':
+                    escape = True
                 elif i == ',':
                     if len(brackets) == 0:
                         value = ''.join(temp)
@@ -408,7 +414,7 @@ def check_compound_items(rules, compound, base_tag):
             for tag in compound[key]:
                 if not tag.type_match(tag_type):
                     raise NbtException(\
-                        'Invalid item type, should be%s\nTag stack:\n>    %s[%d]' %\
+                        'Invalid item type, should be %s\nTag stack:\n>    %s[%d]' %\
                         (rules[base_tag][key]['subtype'], key, index))
                 if tag_type is TagCompound:
                     try:
